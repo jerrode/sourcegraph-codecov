@@ -1,8 +1,5 @@
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
-import {
-    InitializeResult,
-    InitializeParams,
-} from 'cxp/module/protocol'
+import { InitializeResult, InitializeParams } from 'cxp/module/protocol'
 import {
     TextDocumentDecoration,
     ExecuteCommandParams,
@@ -77,6 +74,9 @@ export function run(connection: Connection): void {
                         commands: [
                             TOGGLE_ALL_DECORATIONS_COMMAND_ID,
                             TOGGLE_HITS_DECORATIONS_COMMAND_ID,
+                            VIEW_COVERAGE_DETAILS_COMMAND_ID,
+                            SET_API_TOKEN_COMMAND_ID,
+                            HELP_COMMAND_ID,
                         ],
                     },
                     decorationProvider: { dynamic: true },
@@ -172,6 +172,34 @@ export function run(connection: Connection): void {
                 }
                 break
 
+            case VIEW_COVERAGE_DETAILS_COMMAND_ID:
+                break
+
+            case SET_API_TOKEN_COMMAND_ID:
+                if (!settings) {
+                    throw new Error('settings are not available')
+                }
+                const endpoint = settings['codecov.endpoints'][0]
+                connection.window
+                    .showInputRequest(
+                        `Codecov API token (for private repositories on ${
+                            endpoint.url
+                        }):`,
+                        endpoint.token
+                    )
+                    .then(token => {
+                        return executeConfigurationCommand(settings!, {
+                            path: ['codecov.endpoints', 0, 'token'],
+                            value: token, // null will remove, as desired
+                        })
+                    })
+                    .catch(err =>
+                        console.error(`${SET_API_TOKEN_COMMAND_ID}:`, err)
+                    )
+
+            case HELP_COMMAND_ID:
+                break
+
             default:
                 throw new Error(`unknown command: ${params.command}`)
         }
@@ -184,39 +212,50 @@ export function run(connection: Connection): void {
             menus: { 'editor/title': [], commandPalette: [], help: [] },
         }
         if (lastOpenedTextDocument) {
-            const ratio = await Model.getFileCoverageRatio(
-                resolveURI(root, lastOpenedTextDocument.uri),
-                settings
-            )
-            contributions.commands!.push({
-                command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
-                title: `${
-                    settings['codecov.decorations'].hide ? 'Show' : 'Hide'
-                } inline code coverage decorations on file`,
-                category: 'Codecov',
-                toolbarItem: {
-                    label: ratio
-                        ? `Coverage: ${ratio.toFixed(0)}%`
-                        : 'Coverage',
-                    description: `Codecov: ${
-                        !settings['codecov.decorations'] ||
-                        !settings['codecov.decorations'].hide
-                            ? 'Hide'
-                            : 'Show'
-                    } code coverage`,
-                    iconURL:
-                        ratio !== undefined
-                            ? iconURL(iconColor(ratio))
-                            : undefined,
-                    iconDescription:
-                        'Codecov logo with red, yellow, or green color indicating the file coverage ratio',
-                },
-            })
-            const menuItem: MenuItemContribution = {
-                command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+            let ratio: number | undefined
+            try {
+                ratio = await Model.getFileCoverageRatio(
+                    resolveURI(root, lastOpenedTextDocument.uri),
+                    settings
+                )
+            } catch (err) {
+                connection.console.error(
+                    `Error computing file coverage ratio for ${
+                        lastOpenedTextDocument.uri
+                    }: ${err}`
+                )
             }
-            contributions.menus!['editor/title']!.push(menuItem)
-            contributions.menus!['commandPalette']!.push(menuItem)
+            if (ratio !== undefined) {
+                contributions.commands!.push({
+                    command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+                    title: `${
+                        settings['codecov.decorations'].hide ? 'Show' : 'Hide'
+                    } inline code coverage decorations on file`,
+                    category: 'Codecov',
+                    toolbarItem: {
+                        label: ratio
+                            ? `Coverage: ${ratio.toFixed(0)}%`
+                            : 'Coverage',
+                        description: `Codecov: ${
+                            !settings['codecov.decorations'] ||
+                            !settings['codecov.decorations'].hide
+                                ? 'Hide'
+                                : 'Show'
+                        } code coverage`,
+                        iconURL:
+                            ratio !== undefined
+                                ? iconURL(iconColor(ratio))
+                                : undefined,
+                        iconDescription:
+                            'Codecov logo with red, yellow, or green color indicating the file coverage ratio',
+                    },
+                })
+                const menuItem: MenuItemContribution = {
+                    command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+                }
+                contributions.menus!['editor/title']!.push(menuItem)
+                contributions.menus!['commandPalette']!.push(menuItem)
+            }
         }
 
         // Always add global commands.

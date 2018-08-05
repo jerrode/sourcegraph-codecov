@@ -41,13 +41,15 @@ export interface Endpoint {
     token?: string
 }
 
+const CODECOV_IO_URL = 'https://codecov.io'
+
 function resolveEndpoints(raw: RawSettings): Endpoint[] {
     const endpoints = raw['codecov.endpoints']
     if (!endpoints || endpoints.length === 0) {
-        return [{ url: 'https://codecov.io' }]
+        return [{ url: CODECOV_IO_URL }]
     }
     return endpoints.map(({ url, token }) => ({
-        url: urlWithOnlyProtocolAndHost(url),
+        url: url ? urlWithOnlyProtocolAndHost(url) : CODECOV_IO_URL,
         token,
     }))
 }
