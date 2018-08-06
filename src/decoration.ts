@@ -30,7 +30,6 @@ export function codecovToDecorations(
         backgroundColor: lineColor(coverage, 0.7, 1),
         color: lineColor(coverage, 0.25, 1),
         ...lineText(coverage),
-        linkURL: 'http://example.com', // TODO!(sqs)
       }
     }
     decorations.push(decoration)
