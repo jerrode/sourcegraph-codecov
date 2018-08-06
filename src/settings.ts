@@ -60,8 +60,7 @@ function urlWithOnlyProtocolAndHost(urlStr: string): string {
 }
 
 /**
- * The user settings for this extension's file decorations, in the "decorations" sub-property of the extension
- * settings.
+ * The user settings for this extension's file decorations.
  */
 export interface DecorationSettings {
     /** Hide all of the decorations. */
