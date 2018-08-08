@@ -1,0 +1,66 @@
+{
+  "title": "Codecov",
+  "description": "Shows code coverage from Codecov",
+  "platform": {
+    "type": "bundle",
+    "url": "http://localhost:1234/cx-codecov.js"
+  },
+  "activationEvents": ["*"],
+  "contributes": {
+    "configuration": {
+      "title": "Codecov settings",
+      "properties": {
+        "codecov.decorations": {
+          "description":
+            "Configures the appearance of code coverage on a code file.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hide": {
+              "description": "Hide all of the code coverage decorations.",
+              "type": "boolean"
+            },
+            "lineBackgroundColors": {
+              "description":
+                "Whether to decorate each line with a background color based on its coverage.",
+              "type": "boolean"
+            },
+            "lineHitCounts": {
+              "description":
+                "Whether to decorate the end of each covered line with the hit/branch stats.",
+              "type": "boolean"
+            }
+          }
+        },
+        "codecov.endpoints": {
+          "description":
+            "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https: //codecov.io is used.",
+          "type": "array",
+          "items": {
+            "description":
+              "A Codecov endpoint (either https://codecov.io or Codecov Enterprise).",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "description": "The URL for this Codecov endpoint.",
+                "type": "string",
+                "format": "uri",
+                "default": "https://codecov.io",
+                "examples": [
+                  "https://codecov.io",
+                  "https://codecov.example.com"
+                ]
+              },
+              "token": {
+                "description":
+                  "The Codecov API token for this endpoint (required for private repositories).",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

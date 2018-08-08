@@ -1,16 +1,11 @@
 /**
  * The resolved and normalized settings for this extension, the result of calling resolveSettings on a RawSettings
  * value.
+ *
+ * See the configuration JSON Schema in extension.json for the canonical documentation on these properties.
  */
 export interface Settings {
-    /** Settings specifying what to display on files. */
     ['codecov.decorations']: DecorationSettings
-
-    /**
-     * The list of Codecov endpoints that are contacted to retrieve coverage data, in order.
-     *
-     * If empty or not set, https://codecov.io is used.
-     */
     ['codecov.endpoints']: Endpoint[]
 }
 
@@ -28,16 +23,8 @@ export function resolveSettings(raw: RawSettings): Settings {
     }
 }
 
-/** A Codecov endpoint (either https://codecov.io or Codecov Enterprise). */
 export interface Endpoint {
-    /**
-     * The URL for this endpoint.
-     * @example https://codecov.io (Codecov.io)
-     * @example https://codecov.example.com (Codecov Enterprise)
-     */
     url: string
-
-    /** The Codecov API token for this endpoint (required for private repositories on Codecov.io). */
     token?: string
 }
 
@@ -59,17 +46,9 @@ function urlWithOnlyProtocolAndHost(urlStr: string): string {
     return `${url.protocol}//${url.host}`
 }
 
-/**
- * The user settings for this extension's file decorations.
- */
 export interface DecorationSettings {
-    /** Hide all of the decorations. */
     hide?: boolean
-
-    /** Whether to decorate lines with background colors based on their coverage. */
     lineBackgroundColors?: boolean
-
-    /** Whether to decorate the end of the line with the hit/branch stats. */
     lineHitCounts?: boolean
 }
 
