@@ -155,7 +155,7 @@ export function run(connection: Connection): void {
                             : true
                         executeConfigurationCommand(settings, {
                             path: ['codecov.decorations', 'hide'],
-                            value: settings['codecov.decorations'].hide,
+                            value: settings['codecov.decorations'].hide || null,
                         })
                         break
                     case TOGGLE_HITS_DECORATIONS_COMMAND_ID:
@@ -166,7 +166,8 @@ export function run(connection: Connection): void {
                         executeConfigurationCommand(settings, {
                             path: ['codecov.decorations', 'lineHitCounts'],
                             value:
-                                settings['codecov.decorations'].lineHitCounts,
+                                settings['codecov.decorations'].lineHitCounts ||
+                                null,
                         })
                         break
                 }
@@ -188,10 +189,12 @@ export function run(connection: Connection): void {
                         endpoint.token
                     )
                     .then(token => {
-                        return executeConfigurationCommand(settings!, {
-                            path: ['codecov.endpoints', 0, 'token'],
-                            value: token, // null will remove, as desired
-                        })
+                        if (token !== null) {
+                            return executeConfigurationCommand(settings!, {
+                                path: ['codecov.endpoints', 0, 'token'],
+                                value: token || null, // '' will remove, as desired
+                            })
+                        }
                     })
                     .catch(err =>
                         console.error(`${SET_API_TOKEN_COMMAND_ID}:`, err)
