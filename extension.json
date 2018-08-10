@@ -34,7 +34,7 @@
         },
         "codecov.endpoints": {
           "description":
-            "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https: //codecov.io is used.",
+            "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https://codecov.io is used.",
           "type": "array",
           "items": {
             "description":
