@@ -235,7 +235,7 @@ export function run(connection: Connection): void {
                         settings['codecov.decorations'].hide ? 'Show' : 'Hide'
                     } inline code coverage decorations on file`,
                     category: 'Codecov',
-                    toolbarItem: {
+                    actionItem: {
                         label: ratio
                             ? `Coverage: ${ratio.toFixed(0)}%`
                             : 'Coverage',
