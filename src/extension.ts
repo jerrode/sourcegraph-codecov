@@ -1,5 +1,10 @@
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
-import { InitializeResult, InitializeParams } from 'cxp/module/protocol'
+import {
+    InitializeResult,
+    InitializeParams,
+    ResourcePublishDecorationsNotification,
+    ResourcePublishDecorationsParams,
+} from 'cxp/module/protocol'
 import {
     TextDocumentDecoration,
     ExecuteCommandParams,
@@ -11,8 +16,6 @@ import {
     DidChangeConfigurationParams,
     RegistrationRequest,
     RegistrationParams,
-    TextDocumentPublishDecorationsNotification,
-    TextDocumentPublishDecorationsParams,
 } from 'cxp/lib'
 import { Connection, createConnection } from 'cxp/module/server/server'
 import { TextDocuments } from 'cxp/module/server/features/textDocumentSync'
@@ -323,11 +326,13 @@ export function run(connection: Connection): void {
     ): Promise<void> {
         for (const { uri } of documents) {
             connection.sendNotification(
-                TextDocumentPublishDecorationsNotification.type,
+                ResourcePublishDecorationsNotification.type,
                 {
-                    textDocument: { uri },
-                    decorations: await getDecorations(root, settings, uri),
-                } as TextDocumentPublishDecorationsParams
+                    resource: { uri },
+                    decorations: {
+                        textDocument: await getDecorations(root, settings, uri),
+                    },
+                } as ResourcePublishDecorationsParams
             )
         }
     }
