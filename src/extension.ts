@@ -4,13 +4,8 @@ import {
     TextDocumentDecoration,
     ExecuteCommandParams,
     ConfigurationUpdateRequest,
-    MenuItemContribution,
     ConfigurationUpdateParams,
-    CommandContribution,
-    Contributions,
     DidChangeConfigurationParams,
-    RegistrationRequest,
-    RegistrationParams,
     TextDocumentPublishDecorationsNotification,
     TextDocumentPublishDecorationsParams,
 } from 'cxp/lib'
@@ -80,6 +75,56 @@ export function run(connection: Connection): void {
                         ],
                     },
                     decorationProvider: { dynamic: true },
+                    contributions: {
+                        commands: [
+                            {
+                                command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+                                title:
+                                    'Toggle code coverage decorations on file',
+                                category: 'Codecov',
+                                actionItem: {
+                                    label: 'Coverage',
+                                    description: 'Toggle code coverage',
+                                    iconURL: iconURL(),
+                                    iconDescription: 'Codecov logo',
+                                },
+                            },
+                            {
+                                command: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
+                                title: 'Toggle line hit/branch counts',
+                                category: 'Codecov',
+                            },
+                            {
+                                command: VIEW_COVERAGE_DETAILS_COMMAND_ID,
+                                title: 'View coverage details',
+                                category: 'Codecov',
+                            },
+                            {
+                                command: SET_API_TOKEN_COMMAND_ID,
+                                title:
+                                    'Set API token for private repositories...',
+                                category: 'Codecov',
+                            },
+                            {
+                                command: HELP_COMMAND_ID,
+                                title: 'Documentation and support',
+                                category: 'Codecov',
+                                iconURL: iconURL(),
+                            },
+                        ],
+                        menus: {
+                            'editor/title': [
+                                { command: TOGGLE_ALL_DECORATIONS_COMMAND_ID },
+                            ],
+                            commandPalette: [
+                                { command: TOGGLE_ALL_DECORATIONS_COMMAND_ID },
+                                { command: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
+                                { command: VIEW_COVERAGE_DETAILS_COMMAND_ID },
+                                { command: SET_API_TOKEN_COMMAND_ID },
+                            ],
+                            help: [{ command: HELP_COMMAND_ID }],
+                        },
+                    },
                 },
             } as InitializeResult
         }
@@ -96,7 +141,6 @@ export function run(connection: Connection): void {
             settings = newSettings
             // Don't bother updating client view state if there is no document yet.
             if (lastOpenedTextDocument) {
-                await registerContributions(newSettings)
                 await publishDecorations(newSettings, textDocuments.all())
             }
         }
@@ -104,19 +148,31 @@ export function run(connection: Connection): void {
 
     textDocuments.onDidOpen(async ({ document }) => {
         if (settings) {
-            await registerContributions(settings)
             await publishDecorations(settings, [document])
-        }
-    })
-    textDocuments.onDidClose(async ({ document }) => {
-        if (settings) {
-            // TODO!(sqs): wait to clear to avoid jitter, but we do need to eventually clear to avoid
-            // showing this on non-files (such as dirs), until we get true 'when' support.
-            setTimeout(() => {
-                if (!lastOpenedTextDocument) {
-                    registerContributions(settings!)
+
+            try {
+                const ratio = await Model.getFileCoverageRatio(
+                    resolveURI(root, document.uri),
+                    settings
+                )
+                connection.console.log(
+                    `File coverage ratio: ${
+                        ratio ? `${ratio.toFixed(0)}%` : 'unknown'
+                    }`
+                )
+                if (ratio !== undefined) {
+                    console.log(
+                        '%cCoverage',
+                        `color:white;background-color:${iconColor(ratio)}`
+                    )
                 }
-            })
+            } catch (err) {
+                connection.console.error(
+                    `Error computing file coverage ratio for ${
+                        document.uri
+                    }: ${err}`
+                )
+            }
         }
     })
 
@@ -129,9 +185,6 @@ export function run(connection: Connection): void {
             connection
                 .sendRequest(ConfigurationUpdateRequest.type, configParams)
                 .catch(err => console.error('configuration/update:', err))
-            registerContributions(newSettings).catch(err =>
-                console.error('registerContributions:', err)
-            )
             publishDecorations(newSettings, textDocuments.all()).catch(err =>
                 console.error('publishDecorations:', err)
             )
@@ -207,115 +260,6 @@ export function run(connection: Connection): void {
                 throw new Error(`unknown command: ${params.command}`)
         }
     })
-
-    let registeredContributions = false
-    async function registerContributions(settings: Settings): Promise<void> {
-        const contributions: Contributions = {
-            commands: [],
-            menus: { 'editor/title': [], commandPalette: [], help: [] },
-        }
-        if (lastOpenedTextDocument) {
-            let ratio: number | undefined
-            try {
-                ratio = await Model.getFileCoverageRatio(
-                    resolveURI(root, lastOpenedTextDocument.uri),
-                    settings
-                )
-            } catch (err) {
-                connection.console.error(
-                    `Error computing file coverage ratio for ${
-                        lastOpenedTextDocument.uri
-                    }: ${err}`
-                )
-            }
-            if (ratio !== undefined) {
-                contributions.commands!.push({
-                    command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
-                    title: `${
-                        settings['codecov.decorations'].hide ? 'Show' : 'Hide'
-                    } inline code coverage decorations on file`,
-                    category: 'Codecov',
-                    actionItem: {
-                        label: ratio
-                            ? `Coverage: ${ratio.toFixed(0)}%`
-                            : 'Coverage',
-                        description: `Codecov: ${
-                            !settings['codecov.decorations'] ||
-                            !settings['codecov.decorations'].hide
-                                ? 'Hide'
-                                : 'Show'
-                        } code coverage`,
-                        iconURL:
-                            ratio !== undefined
-                                ? iconURL(iconColor(ratio))
-                                : undefined,
-                        iconDescription:
-                            'Codecov logo with red, yellow, or green color indicating the file coverage ratio',
-                    },
-                })
-                const menuItem: MenuItemContribution = {
-                    command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
-                }
-                contributions.menus!['editor/title']!.push(menuItem)
-                contributions.menus!['commandPalette']!.push(menuItem)
-            }
-        }
-
-        // Always add global commands.
-        const globalCommands: {
-            command: CommandContribution
-            menuItem: MenuItemContribution
-        }[] = [
-            {
-                command: {
-                    command: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
-                    title: 'Toggle line hit/branch counts',
-                    category: 'Codecov',
-                },
-                menuItem: { command: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
-            },
-            {
-                command: {
-                    command: VIEW_COVERAGE_DETAILS_COMMAND_ID,
-                    title: 'View coverage details',
-                    category: 'Codecov',
-                },
-                menuItem: { command: VIEW_COVERAGE_DETAILS_COMMAND_ID },
-            },
-            {
-                command: {
-                    command: SET_API_TOKEN_COMMAND_ID,
-                    title: 'Set API token for private repositories...',
-                    category: 'Codecov',
-                },
-                menuItem: { command: SET_API_TOKEN_COMMAND_ID },
-            },
-        ]
-        for (const { command, menuItem } of globalCommands) {
-            contributions.commands!.push(command)
-            contributions.menus!['commandPalette']!.push(menuItem)
-        }
-
-        contributions.commands!.push({
-            command: HELP_COMMAND_ID,
-            title: 'Documentation and support',
-            category: 'Codecov',
-            iconURL: iconURL(),
-        })
-        contributions.menus!['help']!.push({ command: HELP_COMMAND_ID })
-
-        await connection.sendRequest(RegistrationRequest.type, {
-            registrations: [
-                {
-                    id: 'main',
-                    method: 'window/contribution',
-                    overwriteExisting: registeredContributions,
-                    registerOptions: contributions,
-                },
-            ],
-        } as RegistrationParams)
-        registeredContributions = true
-    }
 
     async function publishDecorations(
         settings: Settings,
