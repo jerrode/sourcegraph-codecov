@@ -88,7 +88,7 @@ export function run(connection: Connection): void {
     connection.onDidChangeConfiguration(
         async (params: DidChangeConfigurationParams) => {
             const newSettings: Settings = resolveSettings(
-                params.settings.merged
+                params.configurationCascade.merged
             ) // merged is (global + org + user) settings
             if (isEqual(settings, newSettings)) {
                 return // nothing to do
