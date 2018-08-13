@@ -5,20 +5,21 @@
  * See the configuration JSON Schema in extension.json for the canonical documentation on these properties.
  */
 export interface Settings {
-    ['codecov.decorations']: DecorationSettings
+    ['codecov.showCoverage']: boolean
+    ['codecov.decorations.lineCoverage']: boolean
+    ['codecov.decorations.lineHitCounts']: boolean
     ['codecov.endpoints']: Endpoint[]
 }
 
-/** The raw settings for this extension. Most callers should use Settings instead. */
-export interface RawSettings {
-    ['codecov.decorations']?: Settings['codecov.decorations']
-    ['codecov.endpoints']?: Settings['codecov.endpoints']
-}
-
 /** Returns a copy of the extension settings with values normalized and defaults applied. */
-export function resolveSettings(raw: RawSettings): Settings {
+export function resolveSettings(raw: Settings): Settings {
     return {
-        ['codecov.decorations']: resolveDecorations(raw),
+        ['codecov.showCoverage']: raw['codecov.showCoverage'] !== false,
+        ['codecov.decorations.lineCoverage']:
+            raw['codecov.decorations.lineCoverage'] !== false,
+        ['codecov.decorations.lineHitCounts']: !!raw[
+            'codecov.decorations.lineHitCounts'
+        ],
         ['codecov.endpoints']: resolveEndpoints(raw),
     }
 }
@@ -30,7 +31,7 @@ export interface Endpoint {
 
 const CODECOV_IO_URL = 'https://codecov.io'
 
-function resolveEndpoints(raw: RawSettings): Endpoint[] {
+function resolveEndpoints(raw: Settings): Endpoint[] {
     const endpoints = raw['codecov.endpoints']
     if (!endpoints || endpoints.length === 0) {
         return [{ url: CODECOV_IO_URL }]
@@ -44,24 +45,4 @@ function resolveEndpoints(raw: RawSettings): Endpoint[] {
 function urlWithOnlyProtocolAndHost(urlStr: string): string {
     const url = new URL(urlStr)
     return `${url.protocol}//${url.host}`
-}
-
-export interface DecorationSettings {
-    hide?: boolean
-    lineBackgroundColors?: boolean
-    lineHitCounts?: boolean
-}
-
-function resolveDecorations(raw: RawSettings): DecorationSettings {
-    const decorations = raw['codecov.decorations']
-    if (!decorations) {
-        return { lineBackgroundColors: true }
-    }
-    if (decorations.hide) {
-        return { hide: true }
-    }
-    return {
-        lineBackgroundColors: decorations.lineBackgroundColors !== false, // default true
-        lineHitCounts: !!decorations.lineHitCounts, // default false
-    }
 }

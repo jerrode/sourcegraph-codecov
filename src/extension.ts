@@ -20,7 +20,8 @@ import { codecovToDecorations } from './decoration'
 import { hsla, GREEN_HUE, RED_HUE } from './colors'
 import { resolveURI, ResolvedURI } from './uri'
 
-const TOGGLE_ALL_DECORATIONS_COMMAND_ID = 'codecov.decorations.toggleAll'
+const TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID =
+    'codecov.decorations.coverage.toggle'
 const TOGGLE_HITS_DECORATIONS_COMMAND_ID = 'codecov.decorations.hits.toggle'
 const VIEW_COVERAGE_DETAILS_COMMAND_ID = 'codecov.viewCoverageDetails'
 const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
@@ -29,7 +30,7 @@ const HELP_COMMAND_ID = 'codecov.help'
 export function run(connection: Connection): void {
     let initialized = false
     let root: Pick<ResolvedURI, 'repo' | 'rev'> | null = null
-    let settings: Settings | undefined
+    let settings!: Settings
     let lastOpenedTextDocument: TextDocument | undefined
 
     // Track the currently open document.
@@ -60,6 +61,9 @@ export function run(connection: Connection): void {
                 root = resolveURI(null, rootStr)
             }
 
+            // TODO!(sqs): make typesafe
+            settings = params.initializationOptions.settings.merged
+
             return {
                 capabilities: {
                     textDocumentSync: {
@@ -67,7 +71,7 @@ export function run(connection: Connection): void {
                     },
                     executeCommandProvider: {
                         commands: [
-                            TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+                            TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                             TOGGLE_HITS_DECORATIONS_COMMAND_ID,
                             VIEW_COVERAGE_DETAILS_COMMAND_ID,
                             SET_API_TOKEN_COMMAND_ID,
@@ -78,7 +82,7 @@ export function run(connection: Connection): void {
                     contributions: {
                         commands: [
                             {
-                                command: TOGGLE_ALL_DECORATIONS_COMMAND_ID,
+                                command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                 title:
                                     'Toggle code coverage decorations on file',
                                 category: 'Codecov',
@@ -95,6 +99,7 @@ export function run(connection: Connection): void {
                                 category: 'Codecov',
                             },
                             {
+                                // TODO!(sqs): this isn't actually implemented
                                 command: VIEW_COVERAGE_DETAILS_COMMAND_ID,
                                 title: 'View coverage details',
                                 category: 'Codecov',
@@ -114,10 +119,20 @@ export function run(connection: Connection): void {
                         ],
                         menus: {
                             'editor/title': [
-                                { command: TOGGLE_ALL_DECORATIONS_COMMAND_ID },
+                                {
+                                    command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                    // TODO(sqs): When we add support for extension config default values, flip
+                                    // this to config.codecov.showCoverageButton. (We need to make it "hide"
+                                    // because the default for unset is falsey, since extensions can't provide
+                                    // their own defaults yet.)
+                                    when:
+                                        'component && component.type == "textEditor" && !config.codecov.hideCoverageButton',
+                                },
                             ],
                             commandPalette: [
-                                { command: TOGGLE_ALL_DECORATIONS_COMMAND_ID },
+                                {
+                                    command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                },
                                 { command: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
                                 { command: VIEW_COVERAGE_DETAILS_COMMAND_ID },
                                 { command: SET_API_TOKEN_COMMAND_ID },
@@ -191,48 +206,28 @@ export function run(connection: Connection): void {
         }
 
         switch (params.command) {
-            case TOGGLE_ALL_DECORATIONS_COMMAND_ID:
+            case TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID:
+                const newValue = !settings['codecov.decorations.lineCoverage']
+                settings['codecov.decorations.lineCoverage'] = newValue
+                executeConfigurationCommand(settings, {
+                    path: ['codecov.decorations.lineCoverage'],
+                    value: settings['codecov.decorations.lineCoverage'],
+                })
+                break
             case TOGGLE_HITS_DECORATIONS_COMMAND_ID:
-                if (!settings) {
-                    throw new Error('settings are not yet available')
-                }
-                if (!settings['codecov.decorations']) {
-                    settings['codecov.decorations'] = {}
-                }
-                switch (params.command) {
-                    case TOGGLE_ALL_DECORATIONS_COMMAND_ID:
-                        settings['codecov.decorations'].hide = settings[
-                            'codecov.decorations'
-                        ].hide
-                            ? undefined
-                            : true
-                        executeConfigurationCommand(settings, {
-                            path: ['codecov.decorations', 'hide'],
-                            value: settings['codecov.decorations'].hide || null,
-                        })
-                        break
-                    case TOGGLE_HITS_DECORATIONS_COMMAND_ID:
-                        settings[
-                            'codecov.decorations'
-                        ].lineHitCounts = !settings['codecov.decorations']
-                            .lineHitCounts
-                        executeConfigurationCommand(settings, {
-                            path: ['codecov.decorations', 'lineHitCounts'],
-                            value:
-                                settings['codecov.decorations'].lineHitCounts ||
-                                null,
-                        })
-                        break
-                }
+                settings['codecov.decorations.lineHitCounts'] = !settings[
+                    'codecov.decorations.lineHitCounts'
+                ]
+                executeConfigurationCommand(settings, {
+                    path: ['codecov.decorations.lineHitCounts'],
+                    value: settings['codecov.decorations.lineHitCounts'],
+                })
                 break
 
             case VIEW_COVERAGE_DETAILS_COMMAND_ID:
                 break
 
             case SET_API_TOKEN_COMMAND_ID:
-                if (!settings) {
-                    throw new Error('settings are not available')
-                }
                 const endpoint = settings['codecov.endpoints'][0]
                 connection.window
                     .showInputRequest(
@@ -281,12 +276,8 @@ export function run(connection: Connection): void {
         settings: Settings,
         uri: string
     ): Promise<TextDocumentDecoration[]> {
-        const { hide, ...decorationSettings } = settings['codecov.decorations']
-        if (hide) {
-            return []
-        }
         return codecovToDecorations(
-            decorationSettings,
+            settings,
             await Model.getFileLineCoverage(resolveURI(root, uri), settings)
         )
     }

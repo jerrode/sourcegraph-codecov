@@ -10,27 +10,23 @@
     "configuration": {
       "title": "Codecov settings",
       "properties": {
-        "codecov.decorations": {
+        "codecov.hideCoverageButton": {
           "description":
-            "Configures the appearance of code coverage on a code file.",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "hide": {
-              "description": "Hide all of the code coverage decorations.",
-              "type": "boolean"
-            },
-            "lineBackgroundColors": {
-              "description":
-                "Whether to decorate each line with a background color based on its coverage.",
-              "type": "boolean"
-            },
-            "lineHitCounts": {
-              "description":
-                "Whether to decorate the end of each covered line with the hit/branch stats.",
-              "type": "boolean"
-            }
-          }
+            "Whether to hide the file coverage ratio in the toolbar (in a button labeled \"Coverage: N%\").",
+          "type": "boolean",
+          "default": false
+        },
+        "codecov.decorations.lineCoverage": {
+          "description":
+            "Whether to decorate each line with a background color based on its coverage.",
+          "type": "boolean",
+          "default": true
+        },
+        "codecov.decorations.lineHitCounts": {
+          "description":
+            "Whether to decorate the end of each covered line with the hit/branch stats.",
+          "type": "boolean",
+          "default": false
         },
         "codecov.endpoints": {
           "description":
