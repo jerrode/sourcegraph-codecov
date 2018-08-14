@@ -62,7 +62,9 @@ export function run(connection: Connection): void {
             }
 
             // TODO!(sqs): make typesafe
-            settings = params.initializationOptions.settings.merged
+            settings = resolveSettings(
+                params.initializationOptions.settings.merged
+            )
 
             return {
                 capabilities: {
@@ -84,18 +86,20 @@ export function run(connection: Connection): void {
                             {
                                 command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                 title:
-                                    'Toggle code coverage decorations on file',
+                                    '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage decorations on file',
                                 category: 'Codecov',
                                 actionItem: {
-                                    label: 'Coverage',
-                                    description: 'Toggle code coverage',
+                                    label: 'Coverage: ${codecov.foo}%',
+                                    description:
+                                        '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage',
                                     iconURL: iconURL(),
                                     iconDescription: 'Codecov logo',
                                 },
                             },
                             {
                                 command: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
-                                title: 'Toggle line hit/branch counts',
+                                title:
+                                    '${config.codecov.decorations.lineHitCounts && "Hide" || "Show"} line hit/branch counts',
                                 category: 'Codecov',
                             },
                             {
@@ -145,6 +149,20 @@ export function run(connection: Connection): void {
         }
     )
 
+    async function updateFileCoverageClientContext(): Promise<void> {
+        if (!root) {
+            return
+        }
+        const fileRatios = await Model.getFileCoverageRatios(root, settings)
+        const context: { [key: string]: string } = {}
+        for (const [path, ratio] of Object.entries(fileRatios)) {
+            context[`codecov.foo`] = Math.floor(ratio).toString()
+        }
+        connection.context.updateContext(context)
+    }
+
+    connection.onInitialized(() => updateFileCoverageClientContext())
+
     connection.onDidChangeConfiguration(
         async (params: DidChangeConfigurationParams) => {
             const newSettings: Settings = resolveSettings(
@@ -153,10 +171,20 @@ export function run(connection: Connection): void {
             if (isEqual(settings, newSettings)) {
                 return // nothing to do
             }
+            const oldSettings = settings
             settings = newSettings
             // Don't bother updating client view state if there is no document yet.
             if (lastOpenedTextDocument) {
                 await publishDecorations(newSettings, textDocuments.all())
+            }
+
+            if (
+                !isEqual(
+                    settings['codecov.endpoints'],
+                    oldSettings['codecov.endpoints']
+                )
+            ) {
+                await updateFileCoverageClientContext()
             }
         }
     )
