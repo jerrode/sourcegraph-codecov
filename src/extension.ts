@@ -89,10 +89,15 @@ export function run(connection: Connection): void {
                                     '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage decorations on file',
                                 category: 'Codecov',
                                 actionItem: {
-                                    label: 'Coverage: ${codecov.foo}%',
+                                    label:
+                                        'Coverage: ${get(context, `codecov.coverageRatios.${resource.uri}`)}%',
                                     description:
                                         '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage',
-                                    iconURL: iconURL(),
+                                    iconURL: iconURL(
+                                        iconColorExpr(
+                                            'get(context, `codecov.coverageRatios.${resource.uri}`)'
+                                        )
+                                    ),
                                     iconDescription: 'Codecov logo',
                                 },
                             },
@@ -129,8 +134,14 @@ export function run(connection: Connection): void {
                                     // this to config.codecov.showCoverageButton. (We need to make it "hide"
                                     // because the default for unset is falsey, since extensions can't provide
                                     // their own defaults yet.)
+                                    //
+                                    // TODO(sqs): When there are multiple Codecov extensions running in the same
+                                    // CXP environment, the context key "codecov.initialized" will clash.
+                                    //
+                                    // TODO!(sqs): To avoid a flicker with no resource, make it so that the CXP
+                                    // environment always sets a resource even if it has not loaded.
                                     when:
-                                        'component && component.type == "textEditor" && !config.codecov.hideCoverageButton',
+                                        '!config.codecov.hideCoverageButton && codecov.initialized && get(context, `codecov.coverageRatios.${resource.uri}`)',
                                 },
                             ],
                             commandPalette: [
@@ -154,10 +165,13 @@ export function run(connection: Connection): void {
             return
         }
         const fileRatios = await Model.getFileCoverageRatios(root, settings)
-        const context: { [key: string]: string } = {}
+        const context: { [key: string]: string | boolean } = {}
         for (const [path, ratio] of Object.entries(fileRatios)) {
-            context[`codecov.foo`] = Math.floor(ratio).toString()
+            context[
+                `codecov.coverageRatios.git://${root.repo}?${root.rev}#${path}`
+            ] = Math.floor(ratio).toString()
         }
+        context['codecov.initialized'] = true
         connection.context.updateContext(context)
     }
 
@@ -313,6 +327,16 @@ export function run(connection: Connection): void {
 
 function iconColor(coverageRatio: number): string {
     return hsla(coverageRatio * ((GREEN_HUE - RED_HUE) / 100), 0.25, 1)
+}
+
+function iconColorExpr(coverageRatioExpr: string): string {
+    return hsla(
+        '${' +
+            `${coverageRatioExpr} * ((${GREEN_HUE} - ${RED_HUE}) / 100)` +
+            '}',
+        0.25,
+        1
+    )
 }
 
 const connection = createConnection(
