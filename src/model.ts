@@ -16,6 +16,18 @@ export type LineCoverage = number | { hits: number; branches: number } | null
  * The model provides data from Codecov.
  */
 export class Model {
+    /** Gets the coverage ratio for a commit. */
+    public static async getCommitCoverageRatio(
+        { repo, rev }: Pick<ResolvedURI, 'repo' | 'rev'>,
+        settings: Settings
+    ): Promise<number | undefined> {
+        const data = await codecovGetCommitCoverage({
+            ...codecovParamsForRepositoryCommit({ repo, rev }),
+            ...codecovParamsForEndpoint(settings),
+        })
+        return data.commit.totals.coverage
+    }
+
     /** Gets line coverage data for a file at a given commit in a repository. */
     public static async getFileLineCoverage(
         { repo, rev, path }: ResolvedURI,

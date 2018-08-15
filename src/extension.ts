@@ -18,14 +18,20 @@ import { Settings, resolveSettings } from './settings'
 import { Model } from './model'
 import { codecovToDecorations } from './decoration'
 import { hsla, GREEN_HUE, RED_HUE } from './colors'
-import { resolveURI, ResolvedURI } from './uri'
+import {
+    resolveURI,
+    ResolvedURI,
+    codecovParamsForRepositoryCommit,
+} from './uri'
 
 const TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID =
     'codecov.decorations.coverage.toggle'
 const TOGGLE_HITS_DECORATIONS_COMMAND_ID = 'codecov.decorations.hits.toggle'
-const VIEW_COVERAGE_DETAILS_COMMAND_ID = 'codecov.viewCoverageDetails'
+const VIEW_FILE_COVERAGE_ACTION_ID = 'codecov.link.file'
+const VIEW_COMMIT_COVERAGE_ACTION_ID = 'codecov.link.commit'
+const VIEW_REPO_COVERAGE_ACTION_ID = 'codecov.link.repository'
 const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
-const HELP_COMMAND_ID = 'codecov.help'
+const HELP_ACTION_ID = 'codecov.help'
 
 export function run(connection: Connection): void {
     let initialized = false
@@ -75,52 +81,74 @@ export function run(connection: Connection): void {
                         commands: [
                             TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                             TOGGLE_HITS_DECORATIONS_COMMAND_ID,
-                            VIEW_COVERAGE_DETAILS_COMMAND_ID,
+                            VIEW_FILE_COVERAGE_ACTION_ID,
                             SET_API_TOKEN_COMMAND_ID,
-                            HELP_COMMAND_ID,
+                            HELP_ACTION_ID,
                         ],
                     },
                     decorationProvider: { dynamic: true },
                     contributions: {
-                        commands: [
+                        actions: [
                             {
+                                id: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                 command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                 title:
                                     '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage decorations on file',
                                 category: 'Codecov',
                                 actionItem: {
                                     label:
-                                        'Coverage: ${get(context, `codecov.coverageRatios.${resource.uri}`)}%',
+                                        'Coverage: ${get(context, `codecov.coverageRatio.${resource.uri}`)}%',
                                     description:
                                         '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage',
                                     iconURL: iconURL(
                                         iconColorExpr(
-                                            'get(context, `codecov.coverageRatios.${resource.uri}`)'
+                                            'get(context, `codecov.coverageRatio.${resource.uri}`)'
                                         )
                                     ),
                                     iconDescription: 'Codecov logo',
                                 },
                             },
                             {
+                                id: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
                                 command: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
                                 title:
                                     '${config.codecov.decorations.lineHitCounts && "Hide" || "Show"} line hit/branch counts',
                                 category: 'Codecov',
                             },
                             {
-                                // TODO!(sqs): this isn't actually implemented
-                                command: VIEW_COVERAGE_DETAILS_COMMAND_ID,
-                                title: 'View coverage details',
+                                id: VIEW_FILE_COVERAGE_ACTION_ID,
+                                command: 'open',
+                                commandArguments: [
+                                    '${get(context, `codecov.fileURL.${resource.uri}`)}',
+                                ],
+                                title: 'View file coverage report',
                                 category: 'Codecov',
                             },
                             {
-                                command: SET_API_TOKEN_COMMAND_ID,
+                                id: VIEW_COMMIT_COVERAGE_ACTION_ID,
+                                command: 'open',
+                                commandArguments: ['${codecov.commitURL}'],
                                 title:
-                                    'Set API token for private repositories...',
+                                    'View commit report${codecov.commitCoverage && ` (${codecov.commitCoverage}% coverage)` || ""}',
                                 category: 'Codecov',
                             },
                             {
-                                command: HELP_COMMAND_ID,
+                                id: VIEW_REPO_COVERAGE_ACTION_ID,
+                                command: 'open',
+                                commandArguments: ['${codecov.repoURL}'],
+                                title: 'View repository coverage dashboard',
+                                category: 'Codecov',
+                            },
+                            {
+                                id: SET_API_TOKEN_COMMAND_ID,
+                                command: SET_API_TOKEN_COMMAND_ID,
+                                title: 'Set API token for private repositories',
+                                category: 'Codecov',
+                            },
+                            {
+                                id: HELP_ACTION_ID,
+                                command: 'open',
+                                commandArguments: ['https://docs.codecov.io'],
                                 title: 'Documentation and support',
                                 category: 'Codecov',
                                 iconURL: iconURL(),
@@ -129,30 +157,39 @@ export function run(connection: Connection): void {
                         menus: {
                             'editor/title': [
                                 {
-                                    command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                    action: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                     // TODO(sqs): When we add support for extension config default values, flip
                                     // this to config.codecov.showCoverageButton. (We need to make it "hide"
                                     // because the default for unset is falsey, since extensions can't provide
                                     // their own defaults yet.)
                                     //
-                                    // TODO(sqs): When there are multiple Codecov extensions running in the same
-                                    // CXP environment, the context key "codecov.initialized" will clash.
-                                    //
                                     // TODO!(sqs): To avoid a flicker with no resource, make it so that the CXP
                                     // environment always sets a resource even if it has not loaded.
                                     when:
-                                        '!config.codecov.hideCoverageButton && codecov.initialized && get(context, `codecov.coverageRatios.${resource.uri}`)',
+                                        '!config.codecov.hideCoverageButton && get(context, `codecov.coverageRatio.${resource.uri}`)',
                                 },
                             ],
                             commandPalette: [
                                 {
-                                    command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                    action: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
                                 },
-                                { command: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
-                                { command: VIEW_COVERAGE_DETAILS_COMMAND_ID },
-                                { command: SET_API_TOKEN_COMMAND_ID },
+                                { action: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
+                                {
+                                    action: VIEW_FILE_COVERAGE_ACTION_ID,
+                                    when:
+                                        'get(context, `codecov.fileURL.${resource.uri}`)',
+                                },
+                                {
+                                    action: VIEW_COMMIT_COVERAGE_ACTION_ID,
+                                    when: 'codecov.commitURL',
+                                },
+                                {
+                                    action: VIEW_REPO_COVERAGE_ACTION_ID,
+                                    when: 'codecov.repoURL',
+                                },
+                                { action: SET_API_TOKEN_COMMAND_ID },
                             ],
-                            help: [{ command: HELP_COMMAND_ID }],
+                            help: [{ action: HELP_ACTION_ID }],
                         },
                     },
                 },
@@ -164,14 +201,39 @@ export function run(connection: Connection): void {
         if (!root) {
             return
         }
-        const fileRatios = await Model.getFileCoverageRatios(root, settings)
-        const context: { [key: string]: string | boolean } = {}
-        for (const [path, ratio] of Object.entries(fileRatios)) {
-            context[
-                `codecov.coverageRatios.git://${root.repo}?${root.rev}#${path}`
-            ] = Math.floor(ratio).toString()
+
+        const context: { [key: string]: string | number | boolean | null } = {}
+
+        const p = codecovParamsForRepositoryCommit(root)
+        const repoURL = `https://codecov.io/${p.service}/${p.owner}/${p.repo}`
+        context['codecov.repoURL'] = repoURL
+        const baseFileURL = `${repoURL}/src/${p.sha}`
+        context['codecov.commitURL'] = `${repoURL}/commit/${p.sha}`
+
+        try {
+            const commitCoverage = await Model.getCommitCoverageRatio(
+                root,
+                settings
+            )
+            context['codecov.commitCoverage'] = commitCoverage
+                ? commitCoverage.toFixed(1)
+                : null
+
+            const fileRatios = await Model.getFileCoverageRatios(root, settings)
+            for (const [path, ratio] of Object.entries(fileRatios)) {
+                const uri = `git://${root.repo}?${root.rev}#${path}`
+                context[`codecov.coverageRatio.${uri}`] = Math.floor(
+                    ratio
+                ).toString()
+
+                // TODO(sqs): Support non-codecov.io endpoints.
+                context[`codecov.fileURL.${uri}`] = `${baseFileURL}/${path}`
+            }
+        } catch (err) {
+            connection.console.error(
+                `Error loading Codecov file coverage: ${err}`
+            )
         }
-        context['codecov.initialized'] = true
         connection.context.updateContext(context)
     }
 
@@ -266,7 +328,7 @@ export function run(connection: Connection): void {
                 })
                 break
 
-            case VIEW_COVERAGE_DETAILS_COMMAND_ID:
+            case VIEW_FILE_COVERAGE_ACTION_ID:
                 break
 
             case SET_API_TOKEN_COMMAND_ID:
@@ -290,7 +352,7 @@ export function run(connection: Connection): void {
                         console.error(`${SET_API_TOKEN_COMMAND_ID}:`, err)
                     )
 
-            case HELP_COMMAND_ID:
+            case HELP_ACTION_ID:
                 break
 
             default:
