@@ -10,31 +10,26 @@
     "configuration": {
       "title": "Codecov settings",
       "properties": {
-        "codecov.hideCoverageButton": {
-          "description":
-            "Whether to hide the file coverage ratio in the toolbar (in a button labeled \"Coverage: N%\").",
-          "type": "boolean",
-          "default": false
-        },
         "codecov.decorations.lineCoverage": {
-          "description":
-            "Whether to decorate each line with a background color based on its coverage.",
+          "description": "Whether to decorate each line with a background color based on its coverage.",
           "type": "boolean",
           "default": true
         },
         "codecov.decorations.lineHitCounts": {
-          "description":
-            "Whether to decorate the end of each covered line with the hit/branch stats.",
+          "description": "Whether to decorate the end of each covered line with the hit/branch stats.",
+          "type": "boolean",
+          "default": false
+        },
+        "codecov.hideCoverageButton": {
+          "description": "Whether to hide the file coverage ratio item in the toolbar (in a button labeled \"Coverage: N%\").",
           "type": "boolean",
           "default": false
         },
         "codecov.endpoints": {
-          "description":
-            "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https://codecov.io is used.",
+          "description": "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https://codecov.io is used.",
           "type": "array",
           "items": {
-            "description":
-              "A Codecov endpoint (either https://codecov.io or Codecov Enterprise).",
+            "description": "A Codecov endpoint (either https://codecov.io or Codecov Enterprise).",
             "type": "object",
             "additionalProperties": false,
             "properties": {
@@ -49,8 +44,7 @@
                 ]
               },
               "token": {
-                "description":
-                  "The Codecov API token for this endpoint (required for private repositories).",
+                "description": "The Codecov API token for this endpoint (required for private repositories).",
                 "type": "string"
               }
             }

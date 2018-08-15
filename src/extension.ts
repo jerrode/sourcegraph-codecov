@@ -1,10 +1,8 @@
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
 import { InitializeResult, InitializeParams } from 'cxp/module/protocol'
 import {
-    TextDocumentDecoration,
     ExecuteCommandParams,
     ConfigurationUpdateRequest,
-    ConfigurationUpdateParams,
     DidChangeConfigurationParams,
     TextDocumentPublishDecorationsNotification,
     TextDocumentPublishDecorationsParams,
@@ -24,9 +22,10 @@ import {
     codecovParamsForRepositoryCommit,
 } from './uri'
 
-const TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID =
-    'codecov.decorations.coverage.toggle'
-const TOGGLE_HITS_DECORATIONS_COMMAND_ID = 'codecov.decorations.hits.toggle'
+const TOGGLE_COVERAGE_DECORATIONS_ACTION_ID =
+    'codecov.decorations.toggleCoverage'
+const TOGGLE_HITS_DECORATIONS_ACTION_ID = 'codecov.decorations.toggleHits'
+const TOGGLE_BUTTON_ACTION_ID = 'codecov.button.toggle'
 const VIEW_FILE_COVERAGE_ACTION_ID = 'codecov.link.file'
 const VIEW_COMMIT_COVERAGE_ACTION_ID = 'codecov.link.commit'
 const VIEW_REPO_COVERAGE_ACTION_ID = 'codecov.link.repository'
@@ -78,22 +77,22 @@ export function run(connection: Connection): void {
                         openClose: true,
                     },
                     executeCommandProvider: {
-                        commands: [
-                            TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
-                            TOGGLE_HITS_DECORATIONS_COMMAND_ID,
-                            VIEW_FILE_COVERAGE_ACTION_ID,
-                            SET_API_TOKEN_COMMAND_ID,
-                            HELP_ACTION_ID,
-                        ],
+                        commands: [SET_API_TOKEN_COMMAND_ID],
                     },
                     decorationProvider: { dynamic: true },
                     contributions: {
                         actions: [
                             {
-                                id: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
-                                command: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                id: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
+                                command: 'updateConfiguration',
+                                commandArguments: [
+                                    ['codecov.decorations.lineCoverage'],
+                                    '${!config.codecov.decorations.lineCoverage}',
+                                    null,
+                                    'json',
+                                ],
                                 title:
-                                    '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage decorations on file',
+                                    '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} line coverage on file${get(context, `codecov.coverageRatio.${resource.uri}`) && ` (${get(context, `codecov.coverageRatio.${resource.uri}`)}% coverage)` || ""}',
                                 category: 'Codecov',
                                 actionItem: {
                                     label:
@@ -109,10 +108,29 @@ export function run(connection: Connection): void {
                                 },
                             },
                             {
-                                id: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
-                                command: TOGGLE_HITS_DECORATIONS_COMMAND_ID,
+                                id: TOGGLE_HITS_DECORATIONS_ACTION_ID,
+                                command: 'updateConfiguration',
+                                commandArguments: [
+                                    ['codecov.decorations.lineHitCounts'],
+                                    '${!config.codecov.decorations.lineHitCounts}',
+                                    null,
+                                    'json',
+                                ],
                                 title:
                                     '${config.codecov.decorations.lineHitCounts && "Hide" || "Show"} line hit/branch counts',
+                                category: 'Codecov',
+                            },
+                            {
+                                id: TOGGLE_BUTTON_ACTION_ID,
+                                command: 'updateConfiguration',
+                                commandArguments: [
+                                    ['codecov.hideCoverageButton'],
+                                    '${!config.codecov.hideCoverageButton}',
+                                    null,
+                                    'json',
+                                ],
+                                title:
+                                    '${config.codecov.hideCoverageButton && "Show" || "Hide"} coverage % button',
                                 category: 'Codecov',
                             },
                             {
@@ -157,7 +175,7 @@ export function run(connection: Connection): void {
                         menus: {
                             'editor/title': [
                                 {
-                                    action: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                    action: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
                                     // TODO(sqs): When we add support for extension config default values, flip
                                     // this to config.codecov.showCoverageButton. (We need to make it "hide"
                                     // because the default for unset is falsey, since extensions can't provide
@@ -171,9 +189,14 @@ export function run(connection: Connection): void {
                             ],
                             commandPalette: [
                                 {
-                                    action: TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID,
+                                    action: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
                                 },
-                                { action: TOGGLE_HITS_DECORATIONS_COMMAND_ID },
+                                { action: TOGGLE_HITS_DECORATIONS_ACTION_ID },
+                                {
+                                    action: TOGGLE_BUTTON_ACTION_ID,
+                                    when:
+                                        'get(context, `codecov.coverageRatio.${resource.uri}`)',
+                                },
                                 {
                                     action: VIEW_FILE_COVERAGE_ACTION_ID,
                                     when:
@@ -188,6 +211,7 @@ export function run(connection: Connection): void {
                                     when: 'codecov.repoURL',
                                 },
                                 { action: SET_API_TOKEN_COMMAND_ID },
+                                { action: HELP_ACTION_ID },
                             ],
                             help: [{ action: HELP_ACTION_ID }],
                         },
@@ -265,74 +289,15 @@ export function run(connection: Connection): void {
         }
     )
 
-    textDocuments.onDidOpen(async ({ document }) => {
-        if (settings) {
-            await publishDecorations(settings, [document])
-
-            try {
-                const ratio = await Model.getFileCoverageRatio(
-                    resolveURI(root, document.uri),
-                    settings
-                )
-                connection.console.log(
-                    `File coverage ratio: ${
-                        ratio ? `${ratio.toFixed(0)}%` : 'unknown'
-                    }`
-                )
-                if (ratio !== undefined) {
-                    console.log(
-                        '%cCoverage',
-                        `color:white;background-color:${iconColor(ratio)}`
-                    )
-                }
-            } catch (err) {
-                connection.console.error(
-                    `Error computing file coverage ratio for ${
-                        document.uri
-                    }: ${err}`
-                )
-            }
-        }
-    })
+    textDocuments.onDidOpen(({ document }) =>
+        publishDecorations(settings, [document])
+    )
 
     connection.onExecuteCommand((params: ExecuteCommandParams) => {
-        const executeConfigurationCommand = (
-            newSettings: Settings,
-            configParams: ConfigurationUpdateParams
-        ) => {
-            // Run async to avoid blocking our response (and leading to a deadlock).
-            connection
-                .sendRequest(ConfigurationUpdateRequest.type, configParams)
-                .catch(err => console.error('configuration/update:', err))
-            publishDecorations(newSettings, textDocuments.all()).catch(err =>
-                console.error('publishDecorations:', err)
-            )
-        }
-
         switch (params.command) {
-            case TOGGLE_COVERAGE_DECORATIONS_COMMAND_ID:
-                const newValue = !settings['codecov.decorations.lineCoverage']
-                settings['codecov.decorations.lineCoverage'] = newValue
-                executeConfigurationCommand(settings, {
-                    path: ['codecov.decorations.lineCoverage'],
-                    value: settings['codecov.decorations.lineCoverage'],
-                })
-                break
-            case TOGGLE_HITS_DECORATIONS_COMMAND_ID:
-                settings['codecov.decorations.lineHitCounts'] = !settings[
-                    'codecov.decorations.lineHitCounts'
-                ]
-                executeConfigurationCommand(settings, {
-                    path: ['codecov.decorations.lineHitCounts'],
-                    value: settings['codecov.decorations.lineHitCounts'],
-                })
-                break
-
-            case VIEW_FILE_COVERAGE_ACTION_ID:
-                break
-
             case SET_API_TOKEN_COMMAND_ID:
                 const endpoint = settings['codecov.endpoints'][0]
+                // Run async to avoid blocking our response (and leading to a deadlock).
                 connection.window
                     .showInputRequest(
                         `Codecov API token (for private repositories on ${
@@ -342,18 +307,17 @@ export function run(connection: Connection): void {
                     )
                     .then(token => {
                         if (token !== null) {
-                            return executeConfigurationCommand(settings!, {
-                                path: ['codecov.endpoints', 0, 'token'],
-                                value: token || null, // '' will remove, as desired
-                            })
+                            return connection.sendRequest(
+                                ConfigurationUpdateRequest.type,
+                                {
+                                    path: ['codecov.endpoints', 0, 'token'],
+                                    value: token || null, // '' will remove, as desired
+                                }
+                            )
                         }
+                        return
                     })
-                    .catch(err =>
-                        console.error(`${SET_API_TOKEN_COMMAND_ID}:`, err)
-                    )
-
-            case HELP_ACTION_ID:
-                break
+                    .catch(err => console.error(err))
 
             default:
                 throw new Error(`unknown command: ${params.command}`)
@@ -369,26 +333,17 @@ export function run(connection: Connection): void {
                 TextDocumentPublishDecorationsNotification.type,
                 {
                     textDocument: { uri },
-                    decorations: await getDecorations(root, settings, uri),
+                    decorations: codecovToDecorations(
+                        settings,
+                        await Model.getFileLineCoverage(
+                            resolveURI(root, uri),
+                            settings
+                        )
+                    ),
                 } as TextDocumentPublishDecorationsParams
             )
         }
     }
-
-    async function getDecorations(
-        root: Pick<ResolvedURI, 'repo' | 'rev'> | null,
-        settings: Settings,
-        uri: string
-    ): Promise<TextDocumentDecoration[]> {
-        return codecovToDecorations(
-            settings,
-            await Model.getFileLineCoverage(resolveURI(root, uri), settings)
-        )
-    }
-}
-
-function iconColor(coverageRatio: number): string {
-    return hsla(coverageRatio * ((GREEN_HUE - RED_HUE) / 100), 0.25, 1)
 }
 
 function iconColorExpr(coverageRatioExpr: string): string {
