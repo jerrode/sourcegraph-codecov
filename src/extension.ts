@@ -98,7 +98,7 @@ export function run(connection: Connection): void {
                                     label:
                                         'Coverage: ${get(context, `codecov.coverageRatio.${resource.uri}`)}%',
                                     description:
-                                        '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage',
+                                        '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage\nCmd/Ctrl+Click: View on Codecov',
                                     iconURL: iconURL(
                                         iconColorExpr(
                                             'get(context, `codecov.coverageRatio.${resource.uri}`)'
@@ -176,6 +176,7 @@ export function run(connection: Connection): void {
                             'editor/title': [
                                 {
                                     action: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
+                                    alt: VIEW_FILE_COVERAGE_ACTION_ID,
                                     // TODO(sqs): When we add support for extension config default values, flip
                                     // this to config.codecov.showCoverageButton. (We need to make it "hide"
                                     // because the default for unset is falsey, since extensions can't provide
