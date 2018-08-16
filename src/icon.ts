@@ -1,8 +1,8 @@
 const CODECOV_BRAND_COLOR = encodeURIComponent('#E0225C') // Chrome complains if '#' is not escaped
 
-/** Returns a data: URI of the Codecov logo with the given background color. */
-export function iconURL(foregroundColor: string = CODECOV_BRAND_COLOR): string {
-    return `data:image/svg+xml,` + iconSVGWithColor(foregroundColor)
+/** Returns a data: URI of the Codecov logo with the given color. */
+export function iconURL(color: string = CODECOV_BRAND_COLOR): string {
+    return `data:image/svg+xml,` + iconSVGWithColor(color)
 }
 
 function iconSVGWithColor(foregroundColor: string): string {
