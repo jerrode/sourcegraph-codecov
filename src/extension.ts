@@ -218,7 +218,6 @@ export function run(connection: Connection): void {
         switch (params.command) {
             case SET_API_TOKEN_COMMAND_ID:
                 const endpoint = settings['codecov.endpoints'][0]
-                // Run async to avoid blocking our response (and leading to a deadlock).
                 connection.window
                     .showInputRequest(
                         `Codecov API token (for private repositories on ${
@@ -283,7 +282,7 @@ export function run(connection: Connection): void {
         const context: { [key: string]: string | number | boolean | null } = {}
 
         const p = codecovParamsForRepositoryCommit(root)
-        const repoURL = `https://codecov.io/${p.service}/${p.owner}/${p.repo}`
+        const repoURL = `https://codecov.io/${p.service}/${p.owner}/${p.repo}` // TODO Support non-codecov.io endpoints.
         context['codecov.repoURL'] = repoURL
         const baseFileURL = `${repoURL}/src/${p.sha}`
         context['codecov.commitURL'] = `${repoURL}/commit/${p.sha}`
@@ -298,7 +297,8 @@ export function run(connection: Connection): void {
                 ? commitCoverage.toFixed(1)
                 : null
 
-            // Store coverage ratio (and Codecov report URL) for each file at this commit.
+            // Store coverage ratio (and Codecov report URL) for each file at this commit so that
+            // template strings in contributions can refer to these values.
             const fileRatios = await Model.getFileCoverageRatios(root, settings)
             for (const [path, ratio] of Object.entries(fileRatios)) {
                 const uri = `git://${root.repo}?${root.rev}#${path}`
@@ -306,7 +306,6 @@ export function run(connection: Connection): void {
                     ratio
                 ).toString()
 
-                // TODO Support non-codecov.io endpoints.
                 context[`codecov.fileURL.${uri}`] = `${baseFileURL}/${path}`
             }
         } catch (err) {
