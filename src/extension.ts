@@ -1,3 +1,4 @@
+// TODO!(sqs): make it so all or most of these are imported just via `cxp`
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
 import { InitializeResult, InitializeParams } from 'cxp/module/protocol'
 import {
