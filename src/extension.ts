@@ -11,7 +11,6 @@ import { Connection, createConnection } from 'cxp/module/server/server'
 import { TextDocuments } from 'cxp/module/server/features/textDocumentSync'
 import { isEqual } from 'cxp/module/util'
 import { TextDocument } from 'vscode-languageserver-types/lib/umd/main'
-import { iconURL } from './icon'
 import { Settings, resolveSettings } from './settings'
 import { Model } from './model'
 import { codecovToDecorations } from './decoration'
@@ -21,15 +20,7 @@ import {
     codecovParamsForRepositoryCommit,
 } from './uri'
 
-const TOGGLE_COVERAGE_DECORATIONS_ACTION_ID =
-    'codecov.decorations.toggleCoverage'
-const TOGGLE_HITS_DECORATIONS_ACTION_ID = 'codecov.decorations.toggleHits'
-const TOGGLE_BUTTON_ACTION_ID = 'codecov.button.toggle'
-const VIEW_FILE_COVERAGE_ACTION_ID = 'codecov.link.file'
-const VIEW_COMMIT_COVERAGE_ACTION_ID = 'codecov.link.commit'
-const VIEW_REPO_COVERAGE_ACTION_ID = 'codecov.link.repository'
 const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
-const HELP_ACTION_ID = 'codecov.help'
 
 export function run(connection: Connection): void {
     let root: Pick<ResolvedURI, 'repo' | 'rev'> | null = null
@@ -48,131 +39,7 @@ export function run(connection: Connection): void {
                 executeCommandProvider: {
                     commands: [SET_API_TOKEN_COMMAND_ID],
                 },
-                decorationProvider: { dynamic: true },
-                contributions: {
-                    actions: [
-                        {
-                            id: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
-                            command: 'updateConfiguration',
-                            commandArguments: [
-                                ['codecov.decorations.lineCoverage'],
-                                '${!config.codecov.decorations.lineCoverage}',
-                                null,
-                                'json',
-                            ],
-                            title:
-                                '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} line coverage on file${get(context, `codecov.coverageRatio.${resource.uri}`) && ` (${get(context, `codecov.coverageRatio.${resource.uri}`)}% coverage)` || ""}',
-                            category: 'Codecov',
-                            actionItem: {
-                                label:
-                                    'Coverage: ${get(context, `codecov.coverageRatio.${resource.uri}`)}%',
-                                description:
-                                    '${config.codecov.decorations.lineCoverage && "Hide" || "Show"} code coverage\nCmd/Ctrl+Click: View on Codecov',
-                            },
-                        },
-                        {
-                            id: TOGGLE_HITS_DECORATIONS_ACTION_ID,
-                            command: 'updateConfiguration',
-                            commandArguments: [
-                                ['codecov.decorations.lineHitCounts'],
-                                '${!config.codecov.decorations.lineHitCounts}',
-                                null,
-                                'json',
-                            ],
-                            title:
-                                '${config.codecov.decorations.lineHitCounts && "Hide" || "Show"} line hit/branch counts',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: TOGGLE_BUTTON_ACTION_ID,
-                            command: 'updateConfiguration',
-                            commandArguments: [
-                                ['codecov.hideCoverageButton'],
-                                '${!config.codecov.hideCoverageButton}',
-                                null,
-                                'json',
-                            ],
-                            title:
-                                '${config.codecov.hideCoverageButton && "Show" || "Hide"} coverage % button',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: VIEW_FILE_COVERAGE_ACTION_ID,
-                            command: 'open',
-                            commandArguments: [
-                                '${get(context, `codecov.fileURL.${resource.uri}`)}',
-                            ],
-                            title: 'View file coverage report',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: VIEW_COMMIT_COVERAGE_ACTION_ID,
-                            command: 'open',
-                            commandArguments: ['${codecov.commitURL}'],
-                            title:
-                                'View commit report${codecov.commitCoverage && ` (${codecov.commitCoverage}% coverage)` || ""}',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: VIEW_REPO_COVERAGE_ACTION_ID,
-                            command: 'open',
-                            commandArguments: ['${codecov.repoURL}'],
-                            title: 'View repository coverage dashboard',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: SET_API_TOKEN_COMMAND_ID,
-                            command: SET_API_TOKEN_COMMAND_ID,
-                            title: 'Set API token for private repositories',
-                            category: 'Codecov',
-                        },
-                        {
-                            id: HELP_ACTION_ID,
-                            command: 'open',
-                            commandArguments: ['https://docs.codecov.io'],
-                            title: 'Documentation and support',
-                            category: 'Codecov',
-                            iconURL: iconURL(),
-                        },
-                    ],
-                    menus: {
-                        'editor/title': [
-                            {
-                                action: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
-                                alt: VIEW_FILE_COVERAGE_ACTION_ID,
-                                when:
-                                    '!config.codecov.hideCoverageButton && get(context, `codecov.coverageRatio.${resource.uri}`)',
-                            },
-                        ],
-                        commandPalette: [
-                            {
-                                action: TOGGLE_COVERAGE_DECORATIONS_ACTION_ID,
-                            },
-                            { action: TOGGLE_HITS_DECORATIONS_ACTION_ID },
-                            {
-                                action: TOGGLE_BUTTON_ACTION_ID,
-                                when:
-                                    'get(context, `codecov.coverageRatio.${resource.uri}`)',
-                            },
-                            {
-                                action: VIEW_FILE_COVERAGE_ACTION_ID,
-                                when:
-                                    'get(context, `codecov.fileURL.${resource.uri}`)',
-                            },
-                            {
-                                action: VIEW_COMMIT_COVERAGE_ACTION_ID,
-                                when: 'codecov.commitURL',
-                            },
-                            {
-                                action: VIEW_REPO_COVERAGE_ACTION_ID,
-                                when: 'codecov.repoURL',
-                            },
-                            { action: SET_API_TOKEN_COMMAND_ID },
-                            { action: HELP_ACTION_ID },
-                        ],
-                        help: [{ action: HELP_ACTION_ID }],
-                    },
-                },
+                decorationProvider: true,
             },
         } as InitializeResult
     })
