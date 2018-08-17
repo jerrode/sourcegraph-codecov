@@ -131,8 +131,9 @@
           "default": false
         },
         "codecov.endpoints": {
-          "description": "The list of Codecov endpoints that are contacted to retrieve coverage data, in order. If empty or not set, https://codecov.io is used.",
+          "description": "An array of Codecov endpoints that are contacted to retrieve coverage data. Currently only 1 endpoint is supported.\n\nIf empty or not set, https://codecov.io is used.",
           "type": "array",
+          "maxLength": 1,
           "items": {
             "description": "A Codecov endpoint (either https://codecov.io or Codecov Enterprise).",
             "type": "object",

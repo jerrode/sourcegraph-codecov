@@ -22,10 +22,12 @@ import {
 
 const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
 
+/** Entrypoint for the Codecov CXP extension. */
 export function run(connection: Connection): void {
     let root: Pick<ResolvedURI, 'repo' | 'rev'> | null = null
     let settings!: Settings
 
+    // Initialize the connection and report the features (capabilities) of this extension to the client.
     connection.onInitialize((params: InitializeParams) => {
         if (params.root) {
             root = resolveURI(null, params.root)
