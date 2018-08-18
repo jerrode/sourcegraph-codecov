@@ -93,14 +93,6 @@
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@nodelib/fs.stat/-/fs.stat-1.1.0.tgz#50c1e2260ac0ed9439a181de3725a0168d59c48a"
 
-"@sourcegraph/extensions-client-common@^4.1.1":
-  version "4.2.0"
-  resolved "https://registry.yarnpkg.com/@sourcegraph/extensions-client-common/-/extensions-client-common-4.2.0.tgz#75a60cb3a3f3662285e2d676672666b2545a01ae"
-  dependencies:
-    lodash-es "^4.17.10"
-    string-score "^1.0.1"
-    ts-key-enum "^2.0.0"
-
 "@types/mocha@^5.2.3":
   version "5.2.5"
   resolved "https://registry.yarnpkg.com/@types/mocha/-/mocha-5.2.5.tgz#8a4accfc403c124a0bafe8a9fc61a05ec1032073"
@@ -2647,10 +2639,6 @@ locate-path@^2.0.0:
     p-locate "^2.0.0"
     path-exists "^3.0.0"
 
-lodash-es@^4.17.10:
-  version "4.17.10"
-  resolved "https://registry.yarnpkg.com/lodash-es/-/lodash-es-4.17.10.tgz#62cd7104cdf5dd87f235a837f0ede0e8e5117e05"
-
 lodash.clone@^4.5.0:
   version "4.5.0"
   resolved "https://registry.yarnpkg.com/lodash.clone/-/lodash.clone-4.5.0.tgz#195870450f5a13192478df4bc3d23d2dea1907b6"
@@ -4484,10 +4472,6 @@ strict-uri-encode@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/strict-uri-encode/-/strict-uri-encode-1.1.0.tgz#279b225df1d582b1f54e65addd4352e18faa0713"
 
-string-score@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/string-score/-/string-score-1.0.1.tgz#a1f31910705a119337a506ca718b1e85df12dd58"
-
 string-width@^1.0.1:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-1.0.2.tgz#118bdf5b8cdc51a2a7e70d211e07e2b0b9b107d3"
@@ -4686,10 +4670,6 @@ tomlify-j0.4@^3.0.0:
 trim-right@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/trim-right/-/trim-right-1.0.1.tgz#cb2e1203067e0c8de1f614094b9fe45704ea6003"
-
-ts-key-enum@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/ts-key-enum/-/ts-key-enum-2.0.0.tgz#35c98f0bc2c733fffe4225c4febe039b05f1c686"
 
 ts-node@^7.0.0:
   version "7.0.1"

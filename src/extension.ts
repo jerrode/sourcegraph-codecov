@@ -4,7 +4,6 @@ import { InitializeResult, InitializeParams } from 'cxp/module/protocol'
 import {
     ExecuteCommandParams,
     ConfigurationUpdateRequest,
-    DidChangeConfigurationParams,
     TextDocumentPublishDecorationsNotification,
     TextDocumentPublishDecorationsParams,
 } from 'cxp/lib'
@@ -26,14 +25,12 @@ const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
 /** Entrypoint for the Codecov CXP extension. */
 export function run(connection: Connection): void {
     let root: Pick<ResolvedURI, 'repo' | 'rev'> | null = null
-    let settings!: Settings
 
     // Initialize the connection and report the features (capabilities) of this extension to the client.
     connection.onInitialize((params: InitializeParams) => {
         if (params.root) {
             root = resolveURI(null, params.root)
         }
-        settings = resolveSettings(params.initializationOptions.settings.merged)
         return {
             capabilities: {
                 textDocumentSync: {
@@ -53,33 +50,35 @@ export function run(connection: Connection): void {
 
     // Update context values and decorations whenever the settings change.
     connection.onInitialized(() => updateFileCoverageClientContext())
-    connection.onDidChangeConfiguration(
-        async (params: DidChangeConfigurationParams) => {
-            const newSettings: Settings = resolveSettings(
-                params.configurationCascade.merged
-            ) // merged is (global + org + user) settings
-            if (isEqual(settings, newSettings)) {
-                return // nothing to do
-            }
-            const oldSettings = settings
-            settings = newSettings
+    let lastSettings: Settings | undefined
+    connection.configuration.onDidChangeConfiguration(() => {
+        // TODO!(sqs): fix any type
+        const settings = resolveSettings(connection.configuration.configuration
+            .value as any)
 
-            await publishDecorations(newSettings, textDocuments.all())
+        publishDecorations(settings, textDocuments.all())
 
-            if (
-                !isEqual(
-                    settings['codecov.endpoints'],
-                    oldSettings['codecov.endpoints']
-                )
-            ) {
-                await updateFileCoverageClientContext()
-            }
+        if (
+            !lastSettings ||
+            !isEqual(
+                lastSettings['codecov.endpoints'],
+                settings['codecov.endpoints']
+            )
+        ) {
+            updateFileCoverageClientContext()
         }
-    )
+
+        lastSettings = settings
+    })
 
     // Update decorations when the user navigates to file.
     textDocuments.onDidOpen(({ document }) =>
-        publishDecorations(settings, [document])
+        // TODO!(sqs): fix any type
+        publishDecorations(
+            resolveSettings(connection.configuration.configuration
+                .value as any),
+            [document]
+        )
     )
 
     // Handle the "Set Codecov API token" command (show the user a prompt for their token, and save
@@ -87,6 +86,9 @@ export function run(connection: Connection): void {
     connection.onExecuteCommand((params: ExecuteCommandParams) => {
         switch (params.command) {
             case SET_API_TOKEN_COMMAND_ID:
+                // TODO!(sqs): fix any type
+                const settings = resolveSettings(connection.configuration
+                    .configuration.value as any)
                 const endpoint = settings['codecov.endpoints'][0]
                 connection.window
                     .showInputRequest(
@@ -148,6 +150,10 @@ export function run(connection: Connection): void {
         if (!root) {
             return
         }
+
+        // TODO!(sqs): fix any type
+        const settings = resolveSettings(connection.configuration.configuration
+            .value as any)
 
         const context: { [key: string]: string | number | boolean | null } = {}
 
