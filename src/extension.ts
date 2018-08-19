@@ -109,29 +109,20 @@ export function run(cxp: CXP<Settings>): void {
 
     // Handle the "Set Codecov API token" command (show the user a prompt for their token, and save
     // their input to settings).
-    cxp.rawConnection.onRequest(
-        ExecuteCommandRequest.type,
-        async (params: ExecuteCommandParams) => {
-            if (params.command === SET_API_TOKEN_COMMAND_ID) {
-                const endpoint = resolveEndpoint(
-                    cxp.configuration.get('codecov.endpoints')
-                )
-                const token = await cxp.activeWindow.value.showInputBox(
-                    `Codecov API token (for ${endpoint.url}):`,
-                    endpoint.token || ''
-                )
-                if (token !== null) {
-                    // TODO: Only supports setting the token of the first API endpoint.
-                    endpoint.token = token || undefined
-                    return cxp.configuration.update('codecov.endpoints', [
-                        endpoint,
-                    ])
-                }
-            } else {
-                throw new Error(`unknown command: ${params.command}`)
-            }
+    cxp.commands.register(SET_API_TOKEN_COMMAND_ID, async () => {
+        const endpoint = resolveEndpoint(
+            cxp.configuration.get('codecov.endpoints')
+        )
+        const token = await cxp.activeWindow.value.showInputBox(
+            `Codecov API token (for ${endpoint.url}):`,
+            endpoint.token || ''
+        )
+        if (token !== null) {
+            // TODO: Only supports setting the token of the first API endpoint.
+            endpoint.token = token || undefined
+            return cxp.configuration.update('codecov.endpoints', [endpoint])
         }
-    )
+    })
 }
 
 // This runs in a Web Worker and communicates using postMessage with the page.
