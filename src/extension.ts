@@ -1,7 +1,6 @@
 // TODO!(sqs): make it so all or most of these are imported just via `cxp`
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
 import {
-    ExecuteCommandParams,
     TextDocumentPublishDecorationsNotification,
     TextDocumentPublishDecorationsParams,
 } from 'cxp/lib'
@@ -19,7 +18,6 @@ import {
     ResolvedURI,
     codecovParamsForRepositoryCommit,
 } from './uri'
-import { ExecuteCommandRequest } from 'cxp/module/protocol'
 
 const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
 
@@ -32,28 +30,26 @@ export function run(cxp: CXP<Settings>): void {
     // When the configuration or current file changes, publish new decorations.
     //
     // TODO!(sqs): Unpublish decorations on previously (but not currently) open files when settings changes.
-    combineLatest(cxp.configuration, cxp.activeWindow).subscribe(
-        async ([configuration, window]) => {
-            if (
-                window &&
-                window.activeComponent &&
-                window.activeComponent.resource
-            ) {
-                const settings = resolveSettings(configuration)
-                const uri = window.activeComponent.resource
-                cxp.rawConnection.sendNotification(
-                    TextDocumentPublishDecorationsNotification.type,
-                    {
-                        textDocument: { uri },
-                        decorations: codecovToDecorations(
-                            settings,
-                            await getFileLineCoverage(
-                                resolveURI(root, uri),
-                                settings['codecov.endpoints'][0]
-                            )
-                        ),
-                    } as TextDocumentPublishDecorationsParams
-                )
+    combineLatest(cxp.configuration, cxp.windows).subscribe(
+        async ([configuration, windows]) => {
+            for (const window of windows) {
+                if (window.activeComponent && window.activeComponent.resource) {
+                    const settings = resolveSettings(configuration)
+                    const uri = window.activeComponent.resource
+                    cxp.rawConnection.sendNotification(
+                        TextDocumentPublishDecorationsNotification.type,
+                        {
+                            textDocument: { uri },
+                            decorations: codecovToDecorations(
+                                settings,
+                                await getFileLineCoverage(
+                                    resolveURI(root, uri),
+                                    settings['codecov.endpoints'][0]
+                                )
+                            ),
+                        } as TextDocumentPublishDecorationsParams
+                    )
+                }
             }
         }
     )
@@ -113,7 +109,7 @@ export function run(cxp: CXP<Settings>): void {
         const endpoint = resolveEndpoint(
             cxp.configuration.get('codecov.endpoints')
         )
-        const token = await cxp.activeWindow.value.showInputBox(
+        const token = await cxp.windows.active!.showInputBox(
             `Codecov API token (for ${endpoint.url}):`,
             endpoint.token || ''
         )
