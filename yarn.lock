@@ -1484,7 +1484,7 @@ csso@~2.3.1:
     clap "^1.0.9"
     source-map "^0.5.3"
 
-cxp@^10.1.0:
+cxp@^10.2.0:
   version "10.2.0"
   resolved "https://registry.yarnpkg.com/cxp/-/cxp-10.2.0.tgz#d5af10365ef1e2095cd7c1eeecdaf8db156e47d2"
   dependencies:
