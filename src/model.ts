@@ -66,7 +66,7 @@ export class Model {
             data.commit.report.files
         )) {
             const ratio = toCoverageRatio(fileData)
-            if (ratio) {
+            if (ratio !== undefined) {
                 ratios[path] = ratio
             }
         }
