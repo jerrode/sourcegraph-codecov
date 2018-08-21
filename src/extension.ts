@@ -1,12 +1,12 @@
-// TODO!(sqs): make it so all or most of these are imported just via `cxp`
 import { createWebWorkerMessageTransports } from 'cxp/module/jsonrpc2/transports/webWorker'
 import {
     TextDocumentPublishDecorationsNotification,
     TextDocumentPublishDecorationsParams,
-} from 'cxp/lib'
-import { CXP, combineLatest } from 'cxp/module/extension/api'
-import { activateExtension } from 'cxp/module/extension/extension'
+    CXP,
+    activateExtension,
+} from 'cxp/lib/extension'
 import { Settings, resolveSettings, resolveEndpoint } from './settings'
+import { combineLatest } from 'rxjs'
 import {
     getFileCoverageRatios,
     getCommitCoverageRatio,
@@ -19,20 +19,21 @@ import {
     codecovParamsForRepositoryCommit,
 } from './uri'
 
-const SET_API_TOKEN_COMMAND_ID = 'codecov.setAPIToken'
-
 /** Entrypoint for the Codecov CXP extension. */
 export function run(cxp: CXP<Settings>): void {
+    // The root URI of the repository that is open in the client (e.g., "git://github.com/my/repo?mysha").
     const root: Pick<ResolvedURI, 'repo' | 'rev'> | null = cxp.root
         ? resolveURI(null, cxp.root)
         : null
 
     // When the configuration or current file changes, publish new decorations.
     //
-    // TODO!(sqs): Unpublish decorations on previously (but not currently) open files when settings changes.
+    // TODO: Unpublish decorations on previously (but not currently) open files when settings changes, to avoid a
+    // brief flicker of the old state when the file is reopened.
     combineLatest(cxp.configuration, cxp.windows).subscribe(
         async ([configuration, windows]) => {
             for (const window of windows) {
+                // Publish the latest decorations for the file that's being displayed in the window, if any.
                 if (window.activeComponent && window.activeComponent.resource) {
                     const settings = resolveSettings(configuration)
                     const uri = window.activeComponent.resource
@@ -59,7 +60,7 @@ export function run(cxp: CXP<Settings>): void {
     //
     // The context only needs to be updated when the endpoints configuration changes.
     cxp.configuration
-        .observe('codecov.endpoints')
+        .watch('codecov.endpoints')
         .subscribe(async configuration => {
             if (!root) {
                 return
@@ -105,11 +106,11 @@ export function run(cxp: CXP<Settings>): void {
 
     // Handle the "Set Codecov API token" command (show the user a prompt for their token, and save
     // their input to settings).
-    cxp.commands.register(SET_API_TOKEN_COMMAND_ID, async () => {
+    cxp.commands.register('codecov.setAPIToken', async () => {
         const endpoint = resolveEndpoint(
             cxp.configuration.get('codecov.endpoints')
         )
-        const token = await cxp.windows.active!.showInputBox(
+        const token = await cxp.windows.showInputBox(
             `Codecov API token (for ${endpoint.url}):`,
             endpoint.token || ''
         )
