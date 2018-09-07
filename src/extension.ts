@@ -4,7 +4,7 @@ import {
     activateExtension,
 } from 'sourcegraph/module/extension'
 import { Settings, resolveSettings, resolveEndpoint } from './settings'
-import { combineLatest, from } from 'rxjs'
+import { combineLatest, from, ObservableInput } from 'rxjs'
 import {
     getFileCoverageRatios,
     getCommitCoverageRatio,
@@ -16,6 +16,7 @@ import {
     ResolvedURI,
     codecovParamsForRepositoryCommit,
 } from './uri'
+import { Window } from 'sourcegraph/module/extension/api'
 
 /** Entrypoint for the Codecov Sourcegraph extension. */
 export function run(sourcegraph: SourcegraphExtensionAPI<Settings>): void {
@@ -29,8 +30,8 @@ export function run(sourcegraph: SourcegraphExtensionAPI<Settings>): void {
     // TODO: Unpublish decorations on previously (but not currently) open files when settings changes, to avoid a
     // brief flicker of the old state when the file is reopened.
     combineLatest(
-        from(sourcegraph.configuration),
-        from(sourcegraph.windows)
+        from(sourcegraph.configuration as ObservableInput<Settings>),
+        from(sourcegraph.windows as ObservableInput<Window[]>)
     ).subscribe(async ([configuration, windows]) => {
         for (const window of windows) {
             // Publish the latest decorations for the file that's being displayed in the window, if any.
